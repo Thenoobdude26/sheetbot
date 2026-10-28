@@ -2,7 +2,7 @@
     "test_receipts/pdf.pdf": {
         "date": "2024-08-27",
         "invoice_number": "24149900E92P",
-        "vendor": "SOUTHEASTERN",
+        "vendor": "Southeastern",
         "category": "Travel",
         "amount": 10.50,
         "currency": "GBP"
@@ -10,7 +10,7 @@
     "test_receipts/image.jpg": {
         "date": "2024-08-27",
         "invoice_number": "24149900E92P",
-        "vendor": "SOUTHEASTERN",
+        "vendor": "Southeastern",
         "category": "Travel",
         "amount": 10.50,
         "currency": "GBP"
