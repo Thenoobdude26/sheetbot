@@ -19,8 +19,7 @@ def clean(value):
         return "'" + value
     return value
 
-
-def append_expense(data):
+def append_expense(data, drive_link=""):
     invoice = data.get("invoice_number")
     if invoice and invoice.isdigit() and invoice.startswith("0"):
         invoice = "'" + invoice

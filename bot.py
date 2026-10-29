@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -13,7 +14,8 @@ from telegram.ext import (
     filters,
 )
 
-from extract import extract
+from drive import upload_receipt
+from extract import MIME_TYPES, extract
 from sheet import append_expense
 
 load_dotenv()
@@ -28,6 +30,13 @@ BUTTONS = InlineKeyboardMarkup(
         ]
     ]
 )
+
+
+def safe_name(data, suffix):
+    parts = [data.get("date"), data.get("vendor"), data.get("invoice_number")]
+    name = "_".join(str(p) for p in parts if p)
+    name = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "receipt"
+    return name + suffix
 
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -49,6 +58,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / f"receipt{suffix}"
         await tg_file.download_to_drive(path)
+        file_bytes = path.read_bytes()
         try:
             data = await asyncio.to_thread(extract, path)
         except Exception as e:
@@ -59,7 +69,12 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("That doesn't look like a receipt.")
         return
 
-    context.user_data["pending"] = data
+    context.user_data["pending"] = {
+        "data": data,
+        "file_bytes": file_bytes,
+        "suffix": suffix,
+        "link": None,
+    }
 
     lines = [f"{k}: {v}" for k, v in data.items()]
     if data.get("currency") and data["currency"] != "USD":
@@ -75,23 +90,34 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.from_user.id not in ALLOWED:
         return
 
-    pending = context.user_data.pop("pending", None)
+    pending = context.user_data.get("pending")
     if pending is None:
         await query.edit_message_text(
             "Nothing pending (the bot may have restarted). Send the receipt again."
         )
         return
 
-    if query.data == "save":
-        try:
-            await asyncio.to_thread(append_expense, pending)
-        except Exception as e:
-            context.user_data["pending"] = pending  # keep it so you can retry
-            await query.edit_message_text(f"Couldn't save: {e}")
-            return
-        await query.edit_message_text("✅ Saved to the sheet.")
-    else:
+    if query.data == "cancel":
+        context.user_data.pop("pending", None)
         await query.edit_message_text("Cancelled.")
+        return
+
+    try:
+        if pending["link"] is None:
+            filename = safe_name(pending["data"], pending["suffix"])
+            mime = MIME_TYPES.get(pending["suffix"], "application/octet-stream")
+            pending["link"] = await asyncio.to_thread(
+                upload_receipt, pending["file_bytes"], filename, mime
+            )
+        await asyncio.to_thread(append_expense, pending["data"], pending["link"])
+    except Exception as e:
+        await query.edit_message_text(
+            f"Couldn't save: {e}\nPress Save to retry.", reply_markup=BUTTONS
+        )
+        return
+
+    context.user_data.pop("pending", None)
+    await query.edit_message_text("✅ Saved to the sheet.")
 
 
 def main():
