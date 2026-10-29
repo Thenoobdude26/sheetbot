@@ -24,22 +24,18 @@ MIME_TYPES = {
 
 
 class Receipt(BaseModel):
-    date: str | None = None
-    invoice_number: str | None = None
+    date:str | None = None
+    incvoice_number: str | None = None
     vendor: str | None = None
+    description: str | None = None
     category: Literal[
         "Hosting & Cloud",
-        "Domain & Hosting",
+        "Domain and Hosting",
         "Email",
-        "Software",
-        "Travel",
-        "Food",
-        "Office",
         "Other",
     ] | None = None
     amount: float | None = None
     currency: str | None = None
-
 
 def extract(path):
     path = Path(path)
