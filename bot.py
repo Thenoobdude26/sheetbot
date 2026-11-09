@@ -119,11 +119,22 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("pending", None)
     await query.edit_message_text("✅ Saved to the sheet.")
 
+async def on_error(update, context):
+    print("Error:", context.error)
+    if isinstance(update, Update) and update.effective_message:
+        try:
+            await update.effective_message.reply_text(
+                "Something went wrong (network?). Please send the receipt again."
+            )
+        except Exception:
+            pass
+
 
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL, handle_file))
     app.add_handler(CallbackQueryHandler(handle_button))
+    app.add_error_handler(on_error)
     app.run_polling()
 
 
